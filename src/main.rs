@@ -1,3 +1,8 @@
+mod day_1;
+mod day_2;
+
 fn main() {
-    println!("Hello, world!");
+    //day_1::day1_2();
+    day_2::day2();
+
 }
