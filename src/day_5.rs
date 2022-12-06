@@ -44,8 +44,6 @@ fn build_ship(lines: &Vec<String>, height: usize) -> [Vec<char>; 9] {
                 cursor = cursor + item_length + 1;
                 index += 1;
             } else {
-                //index = 0;
-                //cursor = 0;
                 break;
             }
         }
