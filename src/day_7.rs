@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{borrow::Borrow, cell::RefCell, rc::Rc};
 
 //#[macro_use]
 //extern crate lazy_static;
@@ -16,8 +16,8 @@ pub fn day7() {
         dirs: Vec::new(),
     };
 
-    let mut dirs: Vec<Rc<Directory>> = Vec::new();
-    dirs.push(Rc::new(root));
+    let mut dirs: Vec<Rc<RefCell<Directory>>> = Vec::new();
+    dirs.push(Rc::new(RefCell::new(root)));
 
     for i in 2..lines.len() {
         let line = &lines[i];
@@ -36,14 +36,16 @@ pub fn day7() {
             dirs.pop();
         } else if CD.is_match(line) {
             // ex : $ cd bar
-            let new_dir = Directory {
+            let new_dir = Rc::new(RefCell::new(Directory {
                 name: String::from(values[2]),
                 files: Vec::new(),
                 dirs: Vec::new(),
-            };
+            }));
             let current = dirs.last_mut().unwrap();
-            current.add_dir(new_dir);
-            dirs.push(Rc::new(new_dir));
+
+            current.borrow_mut().add_dir(new_dir);
+
+            dirs.push(new_dir);
         } else if LS.is_match(line) {
         } else if DIR.is_match(line) {
             // ex: dir foo
@@ -59,7 +61,7 @@ pub fn day7() {
                 name: String::from(values[1]),
                 size: values[0].parse().unwrap(),
             };
-            dirs.last_mut().unwrap().add_file(new_file);
+            dirs.last().unwrap().borrow_mut().add_file(new_file);
         }
     }
 }
@@ -108,7 +110,7 @@ struct Directory {
     name: String,
     //children: Vec<Box<dyn FSItem>>,
     files: Vec<File>,
-    dirs: Vec<Rc<Directory>>,
+    dirs: Vec<Rc<RefCell<Directory>>>,
 }
 
 impl FSItem for Directory {
@@ -118,7 +120,7 @@ impl FSItem for Directory {
             total += child.size();
         }
         for child in &self.dirs {
-            total += child.size();
+            total += child.borrow_mut().size();
         }
         total
     }
@@ -129,7 +131,7 @@ impl FSItem for Directory {
             child.display(&format!("{}{}", &space, " "));
         }
         for child in &self.dirs {
-            child.display(&format!("{}{}", &space, " "));
+            child.borrow_mut().display(&format!("{}{}", &space, " "));
         }
     }
 
@@ -143,8 +145,8 @@ impl Directory {
     //    self.children.push(item);
     //}
 
-    fn add_dir(&mut self, item: Directory) {
-        self.dirs.push(Rc::new(item));
+    fn add_dir(&mut self, item: Rc<RefCell<Directory>>) {
+        self.dirs.push(item);
     }
 
     fn add_file(&mut self, item: File) {
