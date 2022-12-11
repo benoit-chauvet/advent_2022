@@ -4,7 +4,6 @@ use crate::file_utils;
 
 const SIZE: usize = 10;
 const WIDTH: i32 = 40;
-const HEIGHT: usize = 6;
 
 pub fn day10() {
     let path = String::from("files/day_10.txt");
