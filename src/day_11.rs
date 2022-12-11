@@ -1,15 +1,14 @@
-use num::BigUint;
-
 use crate::file_utils;
 
-const NB_MONKEYS: usize = 4;
+const NB_MONKEYS: usize = 8;
+type Mval = u128;
 
 pub fn day11() {
-    let path = String::from("files/day_11t.txt");
+    let path = String::from("files/day_11.txt");
     let mut lines: Vec<String> = file_utils::get_lines_reader(path);
 
     let mut monkeys: Vec<Monkey> = Vec::new();
-    let nb_rounds = 20;
+    let nb_rounds = 10000;
 
     for i in (0..lines.len()).step_by(7) {
         monkeys.push(parse_monkey(&mut lines[i..i + 7]));
@@ -17,18 +16,20 @@ pub fn day11() {
 
     let mut inspections: [i32; NB_MONKEYS] = [0; NB_MONKEYS];
 
+    let modulo: u128 = monkeys.iter().map(|m| m.test.value).product();
+
     for _i in 0..nb_rounds {
-        let mut transfers: [Vec<BigUint>; NB_MONKEYS] = Default::default();
+        let mut transfers: [Vec<Mval>; NB_MONKEYS] = Default::default();
 
         for m in 0..NB_MONKEYS {
             {
                 let monkey = &mut monkeys[m];
                 for item in &monkey.items {
-                    let worry = monkey.operation.get_worry_lvl(item.clone());
+                    let worry = monkey.operation.get_worry_lvl(*item, modulo);
 
-                    let dest = monkey.test.get_dest(worry.clone()) as usize;
+                    let dest = monkey.test.get_dest(worry) as usize;
 
-                    transfers[dest].push(worry.clone());
+                    transfers[dest].push(worry);
                     inspections[m] += 1;
                 }
                 monkey.items = Vec::new();
@@ -37,16 +38,16 @@ pub fn day11() {
             for t in 0..NB_MONKEYS {
                 for item in &transfers[t] {
                     let mdest = &mut monkeys[t];
-                    mdest.items.push(item.clone());
+                    mdest.items.push(*item);
                 }
                 transfers[t] = Vec::new();
             }
         }
     }
 
-    // for monkey in monkeys {
-    //     monkey.show();
-    // }
+    for monkey in monkeys {
+        monkey.show();
+    }
 
     for inspect in inspections {
         println!("{}", inspect)
@@ -61,8 +62,8 @@ fn parse_monkey(lines: &mut [String]) -> Monkey {
     }
 }
 
-fn get_items(line: &mut String) -> Vec<BigUint> {
-    let mut items: Vec<BigUint> = Vec::new();
+fn get_items(line: &mut String) -> Vec<Mval> {
+    let mut items: Vec<Mval> = Vec::new();
 
     *line = line.replace("Starting items: ", "");
 
@@ -115,14 +116,14 @@ fn get_test(lines: &mut [String]) -> Test {
 }
 
 struct Test {
-    value: u128,
+    value: Mval,
     dest_if_true: u32,
     dest_if_false: u32,
 }
 
 impl Test {
-    fn get_dest(&self, worry: BigUint) -> u32 {
-        if worry % self.value == BigUint::from(0u32) {
+    fn get_dest(&self, worry: Mval) -> u32 {
+        if worry % self.value == 0 {
             return self.dest_if_true;
         } else {
             return self.dest_if_false;
@@ -137,34 +138,30 @@ struct Operation {
 }
 
 impl Operation {
-    fn get_worry_lvl(&self, value: BigUint) -> BigUint {
-        let a: BigUint = if self.a == 0 {
-            value.clone()
-        } else {
-            BigUint::from(self.a)
-        };
-        let b: BigUint = if self.b == 0 {
-            value.clone()
-        } else {
-            BigUint::from(self.b)
-        };
+    fn get_worry_lvl(&self, value: Mval, modulo: u128) -> Mval {
+        let a: Mval = if self.a == 0 { value } else { self.a as Mval };
+        let b: Mval = if self.b == 0 { value } else { self.b as Mval };
 
-        let mut result: BigUint = BigUint::from(0u32);
+        let mut result: Mval = 0;
+
+        println!("a {} b {}", a, b);
 
         match self.operator {
             '+' => result = a + b,
             '-' => result = a - b,
             '*' => result = a * b,
             '/' => result = a / b,
-            _ => result = BigUint::from(0u32),
+            _ => result = 0,
         }
 
-        return result / BigUint::from(3u32);
+        return result % modulo;
+
+        //return result; // / 3;
     }
 }
 
 struct Monkey {
-    items: Vec<BigUint>,
+    items: Vec<Mval>,
     operation: Operation,
     test: Test,
 }
