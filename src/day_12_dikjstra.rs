@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 use crate::file_utils;
 
@@ -19,7 +19,7 @@ pub fn day12() {
 
     let mut nodes: HashMap<Tuple, Node> = HashMap::new();
     let mut distances: HashMap<Tuple, u32> = HashMap::new();
-    let mut visit_queue: VecDeque<Tuple> = VecDeque::new();
+    let mut visited: Vec<Tuple> = Vec::new();
 
     // find the starting position
     let start = find_position(&map, 'S');
@@ -42,36 +42,60 @@ pub fn day12() {
                 children: find_children(&map, point, width, height),
             };
 
+            if node.point == start {
+                distances.insert(node.point, 0);
+            } else {
+                distances.insert(node.point, u32::MAX);
+            }
+
             nodes.insert(point, node);
         }
     }
+    visit(nodes, &mut distances, &mut visited);
 
-    visit_queue.push_back(start);
-    visit(&nodes, &mut distances, &mut visit_queue, 0);
+    for v in visited {
+        println!("v: {} {} - d:{}", v.0, v.1, distances.get(&v).unwrap());
+    }
 
     println!("done: {}", distances.get(&end).unwrap());
 }
 
 fn visit(
-    nodes: &HashMap<Tuple, Node>,
+    nodes: HashMap<Tuple, Node>,
     distances: &mut HashMap<Tuple, u32>,
-    visit_queue: &mut VecDeque<Tuple>,
-    mut depth: u32,
+    visited: &mut Vec<Tuple>,
 ) {
-    depth = depth + 1;
+    let mut min = u32::MAX;
+    let mut node: Option<&Node> = None;
 
-    let node = nodes.get(visit_queue.back().unwrap()).unwrap();
-    for child in &node.children {
-        println!(
-            "p : {}-{}  ch:{}-{}",
-            node.point.0, node.point.1, child.0, child.1
-        );
-        if !distances.contains_key(&child) {
-            distances.insert(*child, depth);
-            visit_queue.push_back(*child);
-            visit(&nodes, distances, visit_queue, depth);
-            //visit_queue.pop_front();
+    // find the closest non visited node :
+    for candidate in &mut nodes.values() {
+        if distances.get(&candidate.point).unwrap() < &min && !visited.contains(&candidate.point) {
+            node = Some(candidate);
+            min = *distances.get(&candidate.point).unwrap();
         }
+    }
+
+    // for ch in &node.unwrap().children {
+    //     println!("chi : {} {}", ch.0, ch.1,);
+    // }
+
+    // set its distances :
+    if !node.is_none() {
+        let n = node.unwrap();
+        let new_distance = distances.get(&n.point).unwrap() + 1;
+        for c in &n.children {
+            if distances.get(&c).unwrap() > &new_distance {
+                //distances.remove(c);
+                distances.insert(*c, new_distance);
+            }
+        }
+        visited.push(n.point);
+
+        visit(nodes, distances, visited);
+    } else {
+        // Recursive exit condition : no more unvisited nodes
+        return;
     }
 }
 
