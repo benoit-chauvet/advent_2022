@@ -1,169 +1,190 @@
-use crate::file_utils;
-use std::cmp;
+use std::collections::HashMap;
 
-type tuple = (usize, usize);
+use crate::file_utils;
+
+type Tuple = (usize, usize);
 
 pub fn day12() {
-    let path = String::from("files/day_12.txt");
-    let lines: Vec<String> = file_utils::get_lines_reader(path);
+    let file_path = String::from("files/day_12.txt");
+    let lines: Vec<String> = file_utils::get_lines_reader(file_path);
 
     let height = lines[0].trim().len();
     let width = lines.len();
 
-    //println!("w:{} h:{}", width, height);
-
-    let mut map : Vec<Vec<char>> = Vec::new();
-    for line in lines{
+    //build the map :
+    let mut map: Vec<Vec<char>> = Vec::new();
+    for line in lines {
         map.push(line.trim().chars().collect());
     }
 
-    // identify position of E
-    let target = find_finish_position(&map);
-    println!("E : {} {}", target.0, target.1);
-   
-    let mut visited :Vec<tuple> = Vec::new();
+    let mut nodes: HashMap<Tuple, Node> = HashMap::new();
+    let mut distances: HashMap<Tuple, u32> = HashMap::new();
+    let mut visited: Vec<Tuple> = Vec::new();
 
-    let mut current = (0,0);
+    // find the starting position
+    let start = find_position(&map, 'S');
 
-    loop{
+    // find the ending position
+    let end = find_position(&map, 'E');
 
-        visited.push(current);
-        
-        let top = get_top(current, &visited);
-        let bottom = get_bottom(current, height, &visited);
-        
-        let left = get_left(current, &visited);
-        let right = get_right(current, width, &visited);
+    println!("end : {} {}", end.0, end.1);
 
-        let mut candidates : Vec<tuple> = Vec::new();
+    map[end.0][end.1] = 'z';
+    map[start.0][start.1] = 'a';
 
-        // existing, not visited yet and allowed elevation 
-        if is_valid_candidate(top, current, &map){
-            candidates.push(top.unwrap());
+    // build the tree:
+    for i in 0..width {
+        for j in 0..height {
+            let point = (i, j);
+
+            let node = Node {
+                point,
+                children: find_children(&map, point, width, height),
+            };
+
+            if node.point == start {
+                distances.insert(node.point, 0);
+            } else {
+                distances.insert(node.point, u32::MAX);
+            }
+
+            nodes.insert(point, node);
         }
-        if is_valid_candidate(bottom, current, &map){
-            candidates.push(bottom.unwrap());
-        }
-        if is_valid_candidate(left, current, &map){
-            candidates.push(left.unwrap());
-        }
-        if is_valid_candidate(right, current, &map){
-            candidates.push(right.unwrap());
-        }
+    }
+    visit(nodes, &mut distances, &mut visited);
 
-        if candidates.is_empty(){
-            println!("NO MORE CANDIDATES");
-            break;
-        }     
+    for v in visited {
+        println!("v: {} {} - d:{}", v.0, v.1, distances.get(&v).unwrap());
+    }
 
-        let mut min = 999;
-        for point in candidates{
-            println!("candidate : {} {}", point.0, point.1);
+    println!("done: {}", distances.get(&end).unwrap());
+}
 
-            let pt_min = min_distance(point, target);
-            if  pt_min < min{
-                min = pt_min;
-            }          
-        }
+fn visit(
+    nodes: HashMap<Tuple, Node>,
+    distances: &mut HashMap<Tuple, u32>,
+    visited: &mut Vec<Tuple>,
+) {
+    let mut min = u32::MAX;
+    let mut node: Option<&Node> = None;
 
-        break;
-        // rules :
-           
-            //  - closest to E (horizontally or vertically)    
-            //  - higher step
-            // >>>> SORT ON distance, then altitude
-
-        if current == target {
-            break;
+    // find the closest non visited node :
+    for candidate in &mut nodes.values() {
+        if distances.get(&candidate.point).unwrap() < &min && !visited.contains(&candidate.point) {
+            node = Some(candidate);
+            min = *distances.get(&candidate.point).unwrap();
         }
     }
 
-    println!("found !");
+    // for ch in &node.unwrap().children {
+    //     println!("chi : {} {}", ch.0, ch.1,);
+    // }
+
+    // set its distances :
+    if !node.is_none() {
+        let n = node.unwrap();
+        let new_distance = distances.get(&n.point).unwrap() + 1;
+        for c in &n.children {
+            if distances.get(&c).unwrap() > &new_distance {
+                //distances.remove(c);
+                distances.insert(*c, new_distance);
+            }
+        }
+        visited.push(n.point);
+
+        visit(nodes, distances, visited);
+    } else {
+        // Recursive exit condition : no more unvisited nodes
+        return;
+    }
 }
 
-fn is_valid_candidate(opt_dest:Option<tuple>, src:tuple, map:&Vec<Vec<char>>) -> bool {
-    if ! opt_dest.is_none(){
+struct Node {
+    point: Tuple,
+    children: Vec<Tuple>,
+}
+
+fn find_children(map: &Vec<Vec<char>>, point: Tuple, width: usize, height: usize) -> Vec<Tuple> {
+    let mut result: Vec<Tuple> = Vec::new();
+
+    let top = get_top(point);
+    let bottom = get_bottom(point, height);
+    let left = get_left(point);
+    let right = get_right(point, width);
+
+    if is_valid_candidate(top, point, map) {
+        result.push(top.unwrap());
+    }
+    if is_valid_candidate(bottom, point, map) {
+        result.push(bottom.unwrap());
+    }
+    if is_valid_candidate(left, point, map) {
+        result.push(left.unwrap());
+    }
+    if is_valid_candidate(right, point, map) {
+        result.push(right.unwrap());
+    }
+
+    return result;
+}
+
+fn is_valid_candidate(opt_dest: Option<Tuple>, src: Tuple, map: &Vec<Vec<char>>) -> bool {
+    if !opt_dest.is_none() {
         let dest = opt_dest.unwrap();
-        let diff = map[dest.0][dest.1] as u32 - map[src.0][src.1] as u32;
-        if diff <= 1{
+
+        let diff = map[dest.0][dest.1] as i32 - map[src.0][src.1] as i32;
+
+        if diff <= 1 {
             return true;
         }
     }
     return false;
 }
 
-fn min_distance(a:tuple, b:tuple)-> usize{
-    let x = a.0.abs_diff(b.0);
-    let y = a.1.abs_diff(b.1);
-
-    return cmp::min(x, y);
-}
-
-fn get_top(point:tuple, visited :&Vec<tuple>)-> Option<tuple>{
-    if point.1 > 0{
-        let result = (point.0, point.1 - 1);
-        if visited.contains(&result){
-            return None;
-        }
-        return Some(result);
-    }
-    else
-    {
-        return None;
-    }
-}
-
-fn get_bottom(point:tuple, max:usize, visited :&Vec<tuple>)-> Option<tuple>{
-    if point.1 < max - 1 {
-        let result = (point.0, point.1 + 1);
-        if visited.contains(&result){
-            return None;
-        }
-        return Some(result);
-    }
-    else
-    {
-        return None;
-    }
-}
-
-fn get_left(point:tuple, visited :&Vec<tuple>)-> Option<tuple>{
-    if point.0 > 0{
-        let result = (point.0 - 1, point.1);
-        if visited.contains(&result){
-            return None;
-        }
-        return Some(result);
-    }
-    else
-    {
-        return None;
-    }
-}
-
-fn get_right(point:tuple, max:usize, visited :&Vec<tuple>)-> Option<tuple>{
-    if point.0 < max - 1 {
-        let result = (point.0 + 1, point.1);
-        if visited.contains(&result){
-            return None;
-        }
-        return Some(result);
-    }
-    else
-    {
-        return None;
-    }
-}
-
-
-fn find_finish_position(map:&Vec<Vec<char>>) -> tuple{
-    for i in 0..map.len(){
-        let line = &map[i]; 
-        for j in 0..line.len(){
-            if line[j] == 'E'{
-                return (i,j);
+fn find_position(map: &Vec<Vec<char>>, value: char) -> Tuple {
+    for i in 0..map.len() {
+        let line = &map[i];
+        for j in 0..line.len() {
+            if line[j] == value {
+                return (i, j);
             }
         }
     }
-    (0,0)
+    (0, 0)
+}
+
+fn get_top(point: Tuple) -> Option<Tuple> {
+    if point.1 > 0 {
+        let result = (point.0, point.1 - 1);
+        return Some(result);
+    } else {
+        return None;
+    }
+}
+
+fn get_bottom(point: Tuple, max: usize) -> Option<Tuple> {
+    if point.1 < max - 1 {
+        let result = (point.0, point.1 + 1);
+        return Some(result);
+    } else {
+        return None;
+    }
+}
+
+fn get_left(point: Tuple) -> Option<Tuple> {
+    if point.0 > 0 {
+        let result = (point.0 - 1, point.1);
+        return Some(result);
+    } else {
+        return None;
+    }
+}
+
+fn get_right(point: Tuple, max: usize) -> Option<Tuple> {
+    if point.0 < max - 1 {
+        let result = (point.0 + 1, point.1);
+        return Some(result);
+    } else {
+        return None;
+    }
 }
