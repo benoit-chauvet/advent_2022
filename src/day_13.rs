@@ -1,5 +1,6 @@
 use crate::file_utils;
 use json::JsonValue;
+use std::cmp::Ordering;
 
 //5563 : too low
 // 5710: ko
@@ -14,17 +15,57 @@ pub fn part2() {
     let file_path = String::from("files/day_13.txt");
     let lines: Vec<String> = file_utils::get_lines_reader(file_path);
 
-    let mut inputs: Vec<JsonValue> = Vec::new();
+    let mut inputs: Vec<Item> = Vec::new();
 
     for i in (0..lines.len()).step_by(3) {
-        inputs.push(json::parse(&lines[i]).unwrap());
-        inputs.push(json::parse(&lines[i + 1]).unwrap());
+        inputs.push(Item{value:json::parse(&lines[i]).unwrap(), line:String::from(&lines[i])});
+        inputs.push(Item{value:json::parse(&lines[i + 1]).unwrap(), line:String::from(&lines[i+1])});
     }
 
-    Sort(inputs);
+    inputs.sort();
+
+    let mut index = 0;
+    for i in inputs{
+        index = index + 1;
+        if is_divider(i.value){
+            println!("{} - {}", i.line, index);
+        }
+    }
+    
 }
 
-pub fn Sort(inputs: Vec<JsonValue>) {}
+fn is_divider(val:JsonValue) -> bool{
+    
+    return val.len() ==1 && val[0].is_array() && val[0].len() == 1&&  val[0][0].is_number();
+}
+
+#[derive(Eq)]
+struct Item{
+    value:JsonValue,
+    line:String,
+}
+
+impl Ord for Item{
+    fn cmp(&self, other: &Self) -> Ordering {
+        match compare(&self.value, &other.value){
+            ComparisonResult::Ok => return Ordering::Less,
+            ComparisonResult::Error => return Ordering::Greater,
+            _ => return Ordering::Equal,
+        }
+    }
+}
+
+impl PartialOrd for Item {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for Item {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
 
 pub fn part1() {
     let file_path = String::from("files/day_13.txt");
