@@ -1,8 +1,8 @@
-use std::collections::{HashMap, VecDeque};
+use std::{collections::{HashMap, VecDeque}, thread::sleep, time::Duration};
 
 use crate::file_utils;
 
-type Tuple = (usize, usize);
+type Tuple = (usize, usize); // x, y
 
 pub fn day12() {
     let file_path = String::from("files/day_12.txt");
@@ -19,10 +19,11 @@ pub fn day12() {
 
     let mut nodes: HashMap<Tuple, Node> = HashMap::new();
     let mut distances: HashMap<Tuple, u32> = HashMap::new();
+    let mut depths: HashMap<Tuple, u32> = HashMap::new();
     let mut visit_queue: VecDeque<Tuple> = VecDeque::new();
 
     // find the starting position
-    let start = find_position(&map, 'S');
+    let mut start = find_position(&map, 'S');
 
     // find the ending position
     let end = find_position(&map, 'E');
@@ -32,7 +33,7 @@ pub fn day12() {
     map[end.0][end.1] = 'z';
     map[start.0][start.1] = 'a';
 
-    // build the tree:
+    // build the graph:
     for i in 0..width {
         for j in 0..height {
             let point = (i, j);
@@ -46,33 +47,66 @@ pub fn day12() {
         }
     }
 
-    visit_queue.push_back(start);
-    visit(&nodes, &mut distances, &mut visit_queue, 0);
+    let mut min = u32::MAX;
+    // find different possible starts : 
+    for i in 0..width {
+        for j in 0..height {
 
-    println!("done: {}", distances.get(&end).unwrap());
+            if map[i][j] == 'a'{
+
+                distances = HashMap::new();
+                depths = HashMap::new();
+                visit_queue = VecDeque::new();
+
+                start = (i,j);
+
+                depths.insert(start, 0);
+                visit_queue.push_back(start);
+                visit(&nodes, &mut distances, &mut visit_queue, &mut depths);
+                if distances.get(&end).is_some() {
+                    if distances.get(&end).unwrap() < &min{
+                        min = *distances.get(&end).unwrap();                
+                    }                
+                }
+            }
+
+        }
+    }
+
+    println!("MIN : {}", min);
+
+
+
 }
 
 fn visit(
     nodes: &HashMap<Tuple, Node>,
     distances: &mut HashMap<Tuple, u32>,
     visit_queue: &mut VecDeque<Tuple>,
-    mut depth: u32,
+    depths: &mut HashMap<Tuple, u32>,
 ) {
-    depth = depth + 1;
+    
+    let node = nodes.get(&visit_queue.pop_front().unwrap()).unwrap();
+    let depth = *depths.get(&node.point).unwrap();
 
-    let node = nodes.get(visit_queue.back().unwrap()).unwrap();
-    for child in &node.children {
-        println!(
-            "p : {}-{}  ch:{}-{}",
-            node.point.0, node.point.1, child.0, child.1
-        );
-        if !distances.contains_key(&child) {
-            distances.insert(*child, depth);
-            visit_queue.push_back(*child);
-            visit(&nodes, distances, visit_queue, depth);
-            //visit_queue.pop_front();
+
+    if !distances.contains_key(&node.point) {
+        distances.insert(node.point, depth);
+
+
+        for child in &node.children {
+            if !distances.contains_key(&child) {
+                //let ch = (child.0, child.1);
+                visit_queue.push_back(*child);
+                depths.insert(*child, depth + 1);
+            }
         }
     }
+
+    if visit_queue.len() > 0 {
+        visit(nodes, distances, visit_queue, depths);
+    }
+
 }
 
 struct Node {
