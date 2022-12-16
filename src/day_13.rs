@@ -2,10 +2,6 @@ use crate::file_utils;
 use json::JsonValue;
 use std::cmp::Ordering;
 
-//5563 : too low
-// 5710: ko
-//5819 : too high
-
 pub fn day13() {
     part1();
     part2();
