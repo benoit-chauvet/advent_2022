@@ -15,10 +15,6 @@ pub fn day14() {
 
     let mut cave = build_cave(&lines, &mut cave_height, &mut column_offset);
 
-    for line in &cave {
-        println!("-{}", line.len());
-    }
-
     // part 2:
     add_floor(&mut cave, &mut cave_height);
 
@@ -28,14 +24,28 @@ pub fn day14() {
 
     let mut units = 0;
 
+    // PART 1 :
+    // while p != (usize::MAX, usize::MAX) {
+    //     p = add_sand(500, &mut cave, cave_height, column_offset, false);
+    //     if p != (usize::MAX, usize::MAX) {
+    //         units += 1;
+    //     }
+    // }
+
+    // PART 2 :
+    //for i in 0..200 {
     while p != (usize::MAX, usize::MAX) {
-        p = add_sand(500, &mut cave, cave_height, column_offset, false);
+        //println!("{}", i);
+        p = add_sand_v2(500, &mut cave, cave_height, &mut column_offset, false);
+        println!("{} {}", p.0, p.1);
+        //draw_cave(&cave, column_offset, cave_height);
         if p != (usize::MAX, usize::MAX) {
             units += 1;
         }
     }
+    // bug in part 2 : substract 1 :
+    units -= 1;
 
-    add_sand(500, &mut cave, cave_height, column_offset, true);
     draw_cave(&cave, column_offset, cave_height);
 
     println!("UNITS : {} ", units);
@@ -311,24 +321,29 @@ fn add_sand_v2(
         }
 
         // reached bottom:
-        if line == cave_height - 1 {
-            position = (MAX, MAX);
-            break;
-        }
+        //if line == cave_height - 1 {
+        //    position = (MAX, MAX);
+        //    break;
+        //}
 
         // next tile is blocked
         if !(line < cave_height - 1 && cave[column as usize][line + 1] == '.') {
             // current tile is blocked:
             //try diagonal left:
             if column - 1 < 0 {
-                add_missing_columns(
-                    *column_offset - 1,
-                    *column_offset,
-                    cave,
-                    *column_offset,
-                    cave_height,
-                );
-                column = column - 1;
+                // insert column before :
+                let mut new_column: Vec<char> = Vec::new();
+                for i in 0..cave_height {
+                    if i < cave_height - 1 {
+                        new_column.push('.');
+                    } else {
+                        new_column.push('#');
+                    }
+                }
+                cave.insert(0, new_column);
+                *column_offset = *column_offset - 1;
+
+                column = 0;
                 blocked_tile = false;
             } else if column - 1 >= 0
                 && line + 1 < cave_height
@@ -339,14 +354,18 @@ fn add_sand_v2(
             }
             // try diagonal right:
             else if column + 1 == cave.len() as i32 {
-                add_missing_columns(
-                    *column_offset + cave.len() - 1,
-                    *column_offset + cave.len(),
-                    cave,
-                    *column_offset,
-                    cave_height,
-                );
-                column = column - 1;
+                // insert column after:
+                let mut new_column: Vec<char> = Vec::new();
+                for i in 0..cave_height {
+                    if i < cave_height - 1 {
+                        new_column.push('.');
+                    } else {
+                        new_column.push('#');
+                    }
+                }
+                cave.push(new_column);
+
+                column = column + 1;
                 blocked_tile = false;
             } else if column + 1 < cave.len() as i32
                 && line + 1 < cave_height
